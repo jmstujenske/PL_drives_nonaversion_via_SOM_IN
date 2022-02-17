@@ -1,5 +1,6 @@
 function [Filtered,FiltHilb,FiltAmp,FiltPh] = BandFilt_Order(eeg,sampFreq,order,low,high)
 %Based on code originally written by Ken Harris
+%Modified by Joseph M. Stujenske in 2014 to allow for specification of filter order
 
 Nyquist = sampFreq/2;
 MyFilt=fir1(order,[low high]/Nyquist);
