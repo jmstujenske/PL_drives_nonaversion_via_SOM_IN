@@ -1,5 +1,6 @@
 function y = Filter0(b, x)
 %Based on code originally written by Ken Harris
+%Minor modification by Joseph M. Stujenske in 2021 to handle matrices up to four dimensions
 
 if size(x,1) == 1
 	x = x(:);
