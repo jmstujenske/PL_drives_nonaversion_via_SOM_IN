@@ -1,12 +1,12 @@
 %%After cultivating in Phy, run this script to extract all of the event
 %%time stamps and spike data
 
-file_dir='C:\Users\Admin\Dropbox (ListonLab)\DataForJoe_SOMcreBLArec\';
-data_dir='DFC Protocol\';
+file_dir='C:\Users\Admin\XXXXXXX\';
+data_dir='XXXXXXX\';
 animal_dirs=dir([file_dir data_dir]);
 animal_dirs=animal_dirs(3:end);
-day_headers={'HAB','PreHabLaser','PreRecallLaser','RECALL','TRAINING'};
-exclude_electrodes=[32];
+day_headers={'RECALL'};
+exclude_electrodes=[];%specify electrodes that were excluded
 clear data
 for animal_rep=1:n_animal
     for day_rep=4
