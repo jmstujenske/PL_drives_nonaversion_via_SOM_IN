@@ -20,10 +20,10 @@ M=memmapfile([rootZ,'\data_binary.bin'],'Format',{'int16',[n_channels length(M.D
 A=M.Data.data(:,1:min(100000,size(M.Data.data,2)));
 ranges=max(A,[],2)-min(A,[],2);
 noisy=ranges>min(double(ranges))*4;
-load([pathToYourConfigFile,'\Ch28.mat'],'chanMap','chanMap0ind','connected','kcoords','name','xcoords','ycoords');
+load(fullfile(pathToYourConfigFile,chanMapFile),'chanMap','chanMap0ind','connected','kcoords','name','xcoords','ycoords');
 connected=true(28,1);
 connected(noisy)=false;
-save([pathToYourConfigFile,'\Ch28.mat'],'chanMap','chanMap0ind','connected','kcoords','name','xcoords','ycoords');
+save(fullfile(pathToYourConfigFile,chanMapFile),'chanMap','chanMap0ind','connected','kcoords','name','xcoords','ycoords');
 %
 ops.trange = [0 Inf]; % time range to sort
 ops.NchanTOT    = n_channels; % total number of channels in your recording
