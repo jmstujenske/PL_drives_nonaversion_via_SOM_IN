@@ -43,7 +43,7 @@ M=memmapfile([day_dir,'\data_binary.bin']);
 M=memmapfile([day_dir,'\data_binary.bin'],'Format',{'int16',[gwfparams.nCh length(M.Data)/gwfparams.nCh/2],'data'});
 
 %Arbitrarily take the first 100,000 data points to identify noisy channels
-A=M.Data.data(:,1:100000);
+A=M.Data.data(:,1:min(100000,size(M.Data.data,2)));
 
 %Noisy channels have very large positive and negative values; let's say that noisy channels will have 4 times larger range of values than the smallest amplitude channel
 ranges=max(A,[],2)-min(A,[],2);
@@ -91,14 +91,14 @@ for n=1:size(average_form,1)
 %A way that I found to empirally identify noise (large deflections across over half the channels)
 %This may not be a generalizable solution
 in=find(size_wf(n,:)<-50);
-if length(in)>14
+if length(in)>floor(gwfparams.nCh/2)
     noise_unit(n)=true;
 end
 
 %sort the channels by waveform size
 [~,in]=sort(size_wf(n,:)./size_wf3(n,:),2,'ascend'); %this is a negative number so this orders from largest to smallest deflection
 [~,in2]=sort(size_wf2(n,:),2,'ascend'); %these numbers are positive, so order is smallest to largest
-in2=in2(1:14); %pick the half of channels with the smallest deflection
+in2=in2(1:ceil(gwfparams.nCh/2)); %pick the half of channels with the smallest deflection
 in=in(1); %Channel with largest evoked change
 
 %What follows below is a quick waveform extraction and calculation that doesn't work very well
@@ -110,7 +110,7 @@ try
     baseLFP=average_form(n,in2,baseline+1:end); %get baseline for unit n
     [~,variability]=sort(rms(baseLFP-nanmean(baseLFP,3),3),2,'ascend'); %find channels with smallest baseline LFP fluctuations
     
-    backgroundLFP=squeeze(nanmedian(average_form(n,in2(variability(1:7)),baseline:end),2)); %take median of these channels to get the LFP that the spike is superimposed on
+    backgroundLFP=squeeze(nanmedian(average_form(n,in2(variability(1:ceil(gwfparams.nCh/4))),baseline:end),2)); %take median of these channels to get the LFP that the spike is superimposed on
     temp=squeeze(nanmean(average_form(n,in(1:n_electoplot),baseline:end),2)); %now take the channels containing the spike
     lin_b=[backgroundLFP([1:60 160:end]) ones(203,1)]\temp([1:60 160:end]); %get a linear regressor to fit the LFP background to the channel with the spike, b/c amplitude not guaranteed to be the same btwn channels
 % spike_shape(n,:)=squeeze(nanmean(average_form(n,in(1:n_electoplot),baseline+1:endplot)-average_form(n,in(1:n_electoplot),start_t),2));
