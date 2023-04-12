@@ -10,6 +10,8 @@ gwfparams.nCh = 28;                      % Number of channels that were streamed
 gwfparams.wfWin = [-100 201];              % Number of samples before and after spiketime to include in waveform
 gwfparams.nWf = 2000;                    % Number of waveforms per unit to pull out
 gwfparams.spikeTimes =readNPY([gwfparams.dataDir,'\spike_times.npy']);
+baseline_s=-100;
+endplot_s=200;
 
 try
 [cids,cgs]=getclustermarkings(day_dir);
@@ -28,10 +30,10 @@ cgs(cgs==0)=[];
 
 %get waveforms (using script form kilosort analysis scripts)
 wf = getWaveForms(gwfparams);
-baseline_s=-100;
+
 baseline=find((gwfparams.wfWin(1):gwfparams.wfWin(2))==baseline_s);
-endplot_s=200;
 endplot=find((gwfparams.wfWin(1):gwfparams.wfWin(2))==endplot_s);
+spike_t=find((gwfparams.wfWin(1):gwfparams.wfWin(2))==0);
 
 wf.waveForms2=wf.waveForms;
 
@@ -112,7 +114,9 @@ try
     
     backgroundLFP=squeeze(nanmedian(average_form(n,in2(variability(1:ceil(gwfparams.nCh/4))),baseline:end),2)); %take median of these channels to get the LFP that the spike is superimposed on
     temp=squeeze(nanmean(average_form(n,in(1:n_electoplot),baseline:end),2)); %now take the channels containing the spike
-    lin_b=[backgroundLFP([1:60 160:end]) ones(203,1)]\temp([1:60 160:end]); %get a linear regressor to fit the LFP background to the channel with the spike, b/c amplitude not guaranteed to be the same btwn channels
+    times_to_use=setdiff(gwfparams.wfWin(1):gwfparams.wfWin(2),-40:40);
+    ins=find(ismember(times_to_use,gwfparams.wfWin(1):gwfparams.wfWin(2)));
+    lin_b=[backgroundLFP(ins) ones(length(ins),1)]\temp(ins); %get a linear regressor to fit the LFP background to the channel with the spike, b/c amplitude not guaranteed to be the same btwn channels
 % spike_shape(n,:)=squeeze(nanmean(average_form(n,in(1:n_electoplot),baseline+1:endplot)-average_form(n,in(1:n_electoplot),start_t),2));
 spike_shape(n,:)=temp(1:endplot-baseline+1)-(backgroundLFP(1:endplot-baseline+1)*lin_b(1)+lin_b(2)); %remove the background LFP
 catch
@@ -121,14 +125,14 @@ end
 end
 
 %find the half-way point of the spike on the left
-find_half=abs(spike_shape-spike_shape(:,100-baseline+1)/2);
-[~,first_half]=min(find_half(:,1:100-baseline),[],2);
+find_half=abs(spike_shape-spike_shape(:,spike_t)/2);
+[~,first_half]=min(find_half(:,1:spike_t-1),[],2);
 
 %... and right
-[~,second_half]=min(find_half(:,100-baseline+2:end),[],2);
+[~,second_half]=min(find_half(:,spike_t+1:end),[],2);
 
 %half-width should be the time difference between these points
-halfwidth=(second_half+(100-baseline+1)-first_half)/3e1;
+halfwidth=(second_half+(spike_t)-first_half)/3e1;
 
 %Now assign units to the correct groupings
 fieldnames={'noise','MUA','good'};
@@ -160,7 +164,7 @@ for nf=1:3
     if ~isempty(spikeshape)
     
     %Take the spike shape that was extracted previously and zero to before the spike
-    spike_zero=spikeshape-nanmedian(spikeshape(:,1:50),2);
+    spike_zero=spikeshape-nanmedian(spikeshape(:,baseline:max(baseline,min(baseline+49,spike_t-50)),2);
     data.clustermetrics.(fieldnames{nf}).SpikeShape_zero=spike_zero;
     
     %Pre-initialize a new half-width calculation that worsks better
@@ -169,8 +173,8 @@ for nf=1:3
              try
             spike_trace=spike_zero(n_spike,:); %get the trace for unit n_spike
             spike_trace=BandFilt_Order(spike_trace,3e4,50,100,3000)'; %bandpass filter to get rid of low frequency and very high frequency content
-             [maxval,in_temp]=max(spike_trace((spike_time-17):(spike_time+10))); %find the maximum time 
-             [minval,in_temp2]=min(spike_trace((spike_time-17):(spike_time+10))); % find the minimum time
+             [maxval,in_temp]=max(spike_trace((spike_t-17):(spike_t+10))); %find the maximum time 
+             [minval,in_temp2]=min(spike_trace((spike_t-17):(spike_t+10))); % find the minimum time
              
              %Deal with the fact that some spikes are positive-going and flip them-- this MOSTLY identified these correctly
              %This needs some work because it sometimes gets it wrong
@@ -183,14 +187,14 @@ for nf=1:3
                  
                  %Fit a line across the spike so that we can then make the baseline approximately flat
                  linfit_b=[(1:length(endsec))'+149 ones(length(endsec),1)]\endsec';
-                 spike_trace(120:end)=spike_trace(120:end)-((1:length(endsec)+30)-1)*linfit_b(1);
+                 spike_trace(spike_t+19:end)=spike_trace(spike_t+19:end)-((1:length(endsec)+30)-1)*linfit_b(1);
                  
                  %Try to figure out when the spike occurred
-                 [spike_volt,spike_in]=min(spike_trace(spike_time-2:spike_time+15));
-                 spike_in=spike_in+spike_time-3; %deal with the fact that we did this on a sub-range
+                 [spike_volt,spike_in]=min(spike_trace(spike_t-2:spike_t+15));
+                 spike_in=spike_in+spike_t-3; %deal with the fact that we did this on a sub-range
                  
                  %The baseline is usually still not flat, so now let's rescale things to make it approximately so
-                 av_afterspike=nanmedian(spike_trace(150:end));
+                 av_afterspike=nanmedian(spike_trace(spike_t+49:end));
                  fix_ratio=abs(spike_volt)/(av_afterspike-spike_volt);
                  spike_trace(spike_in:end)=(spike_trace(spike_in:end)-spike_volt)*fix_ratio+spike_volt;
                  spike_zero(n_spike,:)=spike_trace;
@@ -200,11 +204,11 @@ for nf=1:3
 %              spike_nt=length(spike_trace);
              
               %Try to figure out when the spike occurred
-             [~,spike_bot]=nanmin(spike_trace((spike_time-2)*3:(spike_time+15)*3)); %re-estimate the spike time in the upsampled situation
-             spike_bot=spike_bot+(spike_time-2)*3-1; %make it relative to the start because we did this on a small snippet
-    [~,first_half]=nanmin(abs(spike_trace(spike_time*3-30+1:spike_bot)-spike_trace(spike_bot)/2),[],2); %find the left size of the half-width
+             [~,spike_bot]=nanmin(spike_trace((spike_t-2)*3:(spike_t+15)*3)); %re-estimate the spike time in the upsampled situation
+             spike_bot=spike_bot+(spike_t-2)*3-1; %make it relative to the start because we did this on a small snippet
+    [~,first_half]=nanmin(abs(spike_trace(spike_t*3-30+1:spike_bot)-spike_trace(spike_bot)/2),[],2); %find the left size of the half-width
 [~,second_half]=nanmin(abs(spike_trace(spike_bot+1:spike_bot+90)-spike_trace(spike_bot)/2),[],2); %and the right size
-halfwidth=(second_half+(spike_bot)-(first_half+spike_time*3-30))/9e1; %get the half-width as before
+halfwidth=(second_half+(spike_bot)-(first_half+spike_t*3-30))/9e1; %get the half-width as before
      data.clustermetrics.(fieldnames{nf}).halfwidth2(n_spike)=halfwidth(:)';
      spike_trace(isnan(spike_trace))=0;
      
@@ -228,7 +232,7 @@ else
     second_half2=valleys(find(valleys>peak,1,'first'));
     first_half2=find(lp(spike_bot:peak)<=afterbase,1,'last');
     data.clustermetrics.(fieldnames{nf}).SpikeShape_zero(n_spike,:)=resample(lp,3e4,9e4);
-    spike_norm=abs(nansum(lp(spike_time*3-30+first_half:second_half+(spike_bot))));
+    spike_norm=abs(nansum(lp(spike_t*3-30+first_half:second_half+(spike_bot))));
     spike_trace_rms=lp./(spike_norm);
     AUC=sum((spike_trace_rms(first_half2+spike_bot-1:second_half2)-afterbase/spike_norm)/9e1);
     data.clustermetrics.(fieldnames{nf}).RepolarizationTime(n_spike)=(second_half2-peak)/9e1;
